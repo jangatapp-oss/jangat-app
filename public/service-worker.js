@@ -1,4 +1,4 @@
-const CACHE_NAME = "jangat-v2-github-pages-1";
+const CACHE_NAME = "jangat-v3-complete-curriculum-1";
 const BASE_PATH = self.location.pathname.replace(/service-worker\.js$/, "");
 const INDEX_PATH = `${BASE_PATH}index.html`;
 const MANIFEST_PATH = `${BASE_PATH}manifest.json`;

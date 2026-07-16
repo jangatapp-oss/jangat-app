@@ -1,4 +1,4 @@
-const CACHE_NAME = "jangat-v2-github-pages-1";
+const CACHE_NAME = "jangat-v3-complete-curriculum-1";
 const BASE_PATH = self.location.pathname.replace(/service-worker\.js$/, "");
 const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`, `${BASE_PATH}manifest.json`, `${BASE_PATH}jangat-icon.svg`, `${BASE_PATH}jangat-apple-touch-icon.svg`];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)));self.skipWaiting()});

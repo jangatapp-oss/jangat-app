@@ -13,7 +13,7 @@ major_version = 15
 
 [db.seed]
 enabled = true
-sql_paths = ["./seed_jangat_v1.sql", "./seed_professional_path.sql"]
+sql_paths = ["./seed_jangat_v1.sql", "./seed_professional_path.sql", "./seed_professional_curriculum.sql"]
 
 [auth]
 enabled = true

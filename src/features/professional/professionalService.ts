@@ -97,12 +97,16 @@ export async function saveMission(payload: MissionPayload) {
   const client = requireSupabase();
   const userId = await currentUserId();
   const demonstrated=Object.values(payload.criteria).every(result=>result==="Respecté");
+  const countResult=await client.from("mission_submissions").select("id",{count:"exact",head:true}).eq("mission_key",payload.missionId);
+  if(countResult.error)throw countResult.error;
+  const version=(countResult.count??0)+1;
   const { data, error } = await client.from("mission_submissions").insert({
     user_id: userId,
     mission_key: payload.missionId,
     operational_delivery: payload.operationalDelivery,
     personal_explanation: payload.personalExplanation,
     status: demonstrated?"demonstrated":"revision_requested",
+    version,
   }).select("id").single();
   if (error) throw error;
   const submissionId = String(data.id);
@@ -141,7 +145,7 @@ export async function saveMission(payload: MissionPayload) {
     completed_at:demonstrated?new Date().toISOString():null,updated_at:new Date().toISOString(),
   },{onConflict:"user_id,course_key"});
   if(progressResult.error)throw progressResult.error;
-  return {submissionId,demonstrated};
+  return {submissionId,demonstrated,version};
 }
 
 export async function loadEvidence() {

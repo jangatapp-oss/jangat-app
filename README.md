@@ -4,7 +4,7 @@
 
 JÀNGAT est une PWA mobile-first de réactivation des compétences d’ingénierie pédagogique. La V1 propose l’onboarding, un diagnostic de 15 questions, un parcours progressif de 22 modules, les modules 1 et 2 entièrement utilisables, la lecture vocale, l’auto-évaluation des réponses ouvertes, les XP, la série quotidienne et les cœurs.
 
-Le MVP inclut aussi un parcours professionnel verrouillé : « Directeur de formation et ingénieur pédagogique augmenté par l’IA — Parcours professionnel EduConcret ». Il utilise le CV comme déclaration initiale, puis exige des missions et des preuves avant toute formulation de compétence démontrée.
+JÀNGAT inclut aussi le parcours professionnel intégral et verrouillé « Directeur de formation et ingénieur pédagogique augmenté par l’IA — Parcours professionnel EduConcret » : 34 cours, positionnement adaptatif avant chaque domaine, évaluations, missions LOGIX FORMA, portfolio, soutenance et quatre CV fondés sur les preuves.
 
 ## Lancement local
 
@@ -44,6 +44,6 @@ Consulter :
 - `docs/jangat-v1-scope.md`
 - `docs/jangat-v1-architecture.md`
 - `docs/jangat-v1-content-model.md`
-- `docs/educoncret-professional-path.md`
+- `docs/educoncret-complete-curriculum.md`
 
 Signature : **Jàng — Jëf — Xam**

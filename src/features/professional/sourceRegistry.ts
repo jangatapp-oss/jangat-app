@@ -1,6 +1,7 @@
 import type { SourceReference } from "./curriculumTypes";
+import { SUPPLEMENTAL_PROFESSIONAL_SOURCES } from "./sourceRegistrySupplement";
 
-export const PROFESSIONAL_SOURCES: SourceReference[] = [
+const CORE_PROFESSIONAL_SOURCES: SourceReference[] = [
   { id:"qualiopi-v9", title:"Guide de lecture du Référentiel national qualité — V9", authority:"Ministère du Travail", url:"https://travail-emploi.gouv.fr/sites/travail-emploi/files/2024-07/guide_qualiopi_0.pdf", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:3 },
   { id:"france-competences-vademecum-2026", title:"Vademecum de la certification professionnelle 2026", authority:"France compétences", url:"https://www.francecompetences.fr/app/uploads/2026/01/Vademecum-VF_2026.pdf", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:3 },
   { id:"france-competences-search", title:"Moteur de recherche RNCP et Répertoire spécifique", authority:"France compétences", url:"https://www.francecompetences.fr/recherche-resultats/", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:1 },
@@ -28,6 +29,11 @@ export const PROFESSIONAL_SOURCES: SourceReference[] = [
   { id:"anssi-generative-ai", title:"Recommandations de sécurité pour un système d’IA générative", authority:"ANSSI", url:"https://messervices.cyber.gouv.fr/documents-guides/Recommandations_de_s%C3%A9curit%C3%A9_pour_un_syst%C3%A8me_d_IA_g%C3%A9n%C3%A9rative.pdf", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:6 },
   { id:"apec-training-director", title:"Directeur de centre de formation — fiche métier", authority:"Apec", url:"https://www.apec.fr/tous-nos-metiers/ressources-humaines/directeur-centre-de-formation.html", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:6 },
   { id:"france-travail", title:"Offres et référentiels du marché du travail", authority:"France Travail", url:"https://www.francetravail.fr/", kind:"official", checkedAt:"2026-07-16", reviewFrequencyMonths:1 },
+];
+
+export const PROFESSIONAL_SOURCES: SourceReference[] = [
+  ...CORE_PROFESSIONAL_SOURCES,
+  ...SUPPLEMENTAL_PROFESSIONAL_SOURCES,
 ];
 
 export function findSource(id: string) {
