@@ -1,0 +1,21 @@
+{
+  "name": "JÀNGAT",
+  "short_name": "JÀNGAT",
+  "description": "Le professeur personnel qui transforme l’apprentissage en compétences démontrées.",
+  "lang": "fr",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#f7f3eb",
+  "theme_color": "#5637a6",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    {"src": "./jangat-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"},
+    {"src": "./jangat-apple-touch-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

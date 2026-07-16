@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">JÀNGAT</title>
+  <desc id="desc">Un baobab violet et or symbolisant l’apprentissage et la progression.</desc>
+  <rect width="512" height="512" rx="112" fill="#f7f3eb"/>
+  <circle cx="256" cy="228" r="154" fill="#6242ad"/>
+  <path d="M244 166h24l10 86 64 42-37 16 28 102H179l28-102-37-16 64-42z" fill="#efa04a"/>
+  <path d="M256 95l15 30 34 5-25 24 6 34-30-16-30 16 6-34-25-24 34-5z" fill="#ffd978"/>
+  <circle cx="213" cy="206" r="13" fill="#fff"/>
+  <circle cx="299" cy="206" r="13" fill="#fff"/>
+</svg>
