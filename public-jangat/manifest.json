@@ -15,17 +15,7 @@
   "categories": ["education", "productivity"],
   "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "./jangat-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./jangat-apple-touch-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    {"src": "./jangat-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"},
+    {"src": "./jangat-apple-touch-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
   ]
 }

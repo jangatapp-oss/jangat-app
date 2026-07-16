@@ -5,12 +5,12 @@ export const COURSE_UUID = "10000000-0000-4000-8000-000000000001";
 
 export async function signUp(email:string,password:string,firstName:string) {
   const client=requireSupabase();
-  const {data,error}=await client.auth.signUp({email,password,options:{data:{first_name:firstName},emailRedirectTo:`${location.origin}/dashboard`}});
+  const {data,error}=await client.auth.signUp({email,password,options:{data:{first_name:firstName},emailRedirectTo:`${location.origin}${import.meta.env.BASE_URL}auth/confirm`}});
   if(error)throw error; return data;
 }
 export async function signIn(email:string,password:string){const {data,error}=await requireSupabase().auth.signInWithPassword({email,password});if(error)throw error;return data}
 export async function signOut(){const {error}=await requireSupabase().auth.signOut();if(error)throw error}
-export async function resetPassword(email:string){const {error}=await requireSupabase().auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/settings`});if(error)throw error}
+export async function resetPassword(email:string){const {error}=await requireSupabase().auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}${import.meta.env.BASE_URL}reset-password`});if(error)throw error}
 export async function ensureProfile(){const {data,error}=await requireSupabase().rpc("ensure_jangat_profile");if(error)throw error;return data}
 
 export async function loadServerState():Promise<Partial<JangatState>> {

@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? "/jangat-app/" : "/",
+  publicDir: "public-jangat",
   plugins: [react()],
   resolve: {
     alias: {
