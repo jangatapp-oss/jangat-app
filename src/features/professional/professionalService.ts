@@ -94,64 +94,17 @@ export async function saveAssessmentAttempt(courseKey:string,answers:Record<stri
 }
 
 export async function saveMission(payload: MissionPayload) {
-  const client = requireSupabase();
-  const userId = await currentUserId();
-  const progressCheck=await client.from("professional_course_progress").select("status").eq("user_id",userId).eq("course_key",payload.courseKey).maybeSingle();
-  if(progressCheck.error)throw progressCheck.error;
-  const assessmentPassed=["assessment_passed","completed"].includes(progressCheck.data?.status??"");
-  const criteriaMet=Object.values(payload.criteria).length>0&&Object.values(payload.criteria).every(result=>result==="Respecté");
-  const substantiveDelivery=payload.operationalDelivery.trim().length>=500;
-  const substantiveExplanation=payload.personalExplanation.trim().length>=300;
-  const demonstrated=assessmentPassed&&criteriaMet&&substantiveDelivery&&substantiveExplanation;
-  const countResult=await client.from("mission_submissions").select("id",{count:"exact",head:true}).eq("user_id",userId).eq("mission_key",payload.missionId);
-  if(countResult.error)throw countResult.error;
-  const version=(countResult.count??0)+1;
-  const { data, error } = await client.from("mission_submissions").insert({
-    user_id: userId,
-    mission_key: payload.missionId,
-    operational_delivery: payload.operationalDelivery,
-    personal_explanation: payload.personalExplanation,
-    status: demonstrated?"demonstrated":"revision_requested",
-    version,
-  }).select("id").single();
+  const { data, error } = await requireSupabase().rpc("submit_professional_mission", {
+    p_course_key: payload.courseKey,
+    p_mission_key: payload.missionId,
+    p_mission_title: payload.missionTitle,
+    p_operational_delivery: payload.operationalDelivery,
+    p_personal_explanation: payload.personalExplanation,
+    p_criteria: payload.criteria,
+    p_ai_usage: payload.aiUsage,
+  });
   if (error) throw error;
-  const submissionId = String(data.id);
-  const criterionRows = Object.entries(payload.criteria).map(([criterion, result]) => ({
-    user_id: userId, submission_id: submissionId, criterion, result,
-  }));
-  if (criterionRows.length) {
-    const criteriaResult = await client.from("criterion_results").insert(criterionRows);
-    if (criteriaResult.error) throw criteriaResult.error;
-  }
-  const aiResult = await client.from("ai_usage_records").insert({
-    user_id: userId,
-    submission_id: submissionId,
-    declared_uses: payload.aiUsage,
-    human_control_note: payload.personalExplanation,
-  });
-  if (aiResult.error) throw aiResult.error;
-  const explanationResult = await client.from("professional_explanations").insert({
-    user_id: userId,
-    submission_id: submissionId,
-    explanation: payload.personalExplanation,
-    written_before_ai: true,
-  });
-  if (explanationResult.error) throw explanationResult.error;
-  const evidenceResult = await client.from("evidence_items").insert({
-    user_id: userId,
-    mission_key: payload.missionId,
-    submission_id: submissionId,
-    title: `Livrable — ${payload.missionTitle}`,
-    status: demonstrated?"demonstrated":"in_progress",
-    evidence_type: "mission_submission",
-  });
-  if (evidenceResult.error) throw evidenceResult.error;
-  const progressResult=await client.from("professional_course_progress").upsert({
-    user_id:userId,course_key:payload.courseKey,status:demonstrated?"completed":"mission_submitted",
-    completed_at:demonstrated?new Date().toISOString():null,updated_at:new Date().toISOString(),
-  },{onConflict:"user_id,course_key"});
-  if(progressResult.error)throw progressResult.error;
-  return {submissionId,demonstrated,version};
+  return data as { submissionId: string; demonstrated: boolean; version: number };
 }
 
 export async function loadEvidence() {
@@ -167,27 +120,18 @@ export async function saveDefense(payload:{
   aiContribution:string;humanDecisions:string;teamDirection:string;transmissionPlan:string;
   criterionResults:Record<string,string>;
 }) {
-  const client=requireSupabase();const userId=await currentUserId();
-  const countResult=await client.from("professional_defense_submissions").select("id",{count:"exact",head:true}).eq("user_id",userId);
-  if(countResult.error)throw countResult.error;
-  const version=(countResult.count??0)+1;
-  const demonstrated=Object.values(payload.criterionResults).length>=5&&Object.values(payload.criterionResults).every(value=>value==="Respecté");
-  const {data,error}=await client.from("professional_defense_submissions").insert({
-    user_id:userId,version,dossier:payload.dossier,presentation_text:payload.presentationText,
-    contradictory_answers:payload.contradictoryAnswers,ai_contribution:payload.aiContribution,
-    human_decisions:payload.humanDecisions,team_direction:payload.teamDirection,
-    transmission_plan:payload.transmissionPlan,criterion_results:payload.criterionResults,
-    status:demonstrated?"demonstrated":"revision_requested",
-  }).select("id").single();
-  if(error)throw error;
-  if(demonstrated){
-    const evidenceResult=await client.from("evidence_items").insert({
-      user_id:userId,mission_key:"final-defense",title:"Soutenance professionnelle finale",
-      status:"demonstrated",evidence_type:"professional_defense",
-    });
-    if(evidenceResult.error)throw evidenceResult.error;
-  }
-  return {id:String(data.id),version,demonstrated};
+  const { data, error } = await requireSupabase().rpc("submit_professional_defense", {
+    p_dossier: payload.dossier,
+    p_presentation_text: payload.presentationText,
+    p_contradictory_answers: payload.contradictoryAnswers,
+    p_ai_contribution: payload.aiContribution,
+    p_human_decisions: payload.humanDecisions,
+    p_team_direction: payload.teamDirection,
+    p_transmission_plan: payload.transmissionPlan,
+    p_criterion_results: payload.criterionResults,
+  });
+  if (error) throw error;
+  return data as { id: string; version: number; demonstrated: boolean };
 }
 
 export async function saveCareerDocument(documentType:string,content:Record<string,unknown>,evidenceItemIds:string[]) {
