@@ -4,6 +4,8 @@
 
 JÀNGAT est une PWA mobile-first de réactivation des compétences d’ingénierie pédagogique. La V1 propose l’onboarding, un diagnostic de 15 questions, un parcours progressif de 22 modules, les modules 1 et 2 entièrement utilisables, la lecture vocale, l’auto-évaluation des réponses ouvertes, les XP, la série quotidienne et les cœurs.
 
+Le MVP inclut aussi un parcours professionnel verrouillé : « Directeur de formation et ingénieur pédagogique augmenté par l’IA — Parcours professionnel EduConcret ». Il utilise le CV comme déclaration initiale, puis exige des missions et des preuves avant toute formulation de compétence démontrée.
+
 ## Lancement local
 
 ```bash
@@ -31,7 +33,7 @@ VITE_SUPABASE_URL=https://votre-projet.supabase.co
 VITE_SUPABASE_ANON_KEY=votre-cle-anonyme
 ```
 
-Ne jamais placer de clé `service_role` dans le navigateur. Appliquer `supabase/migrations/202607160001_jangat_v1.sql`, puis `supabase/seed_jangat_v1.sql`. Le schéma active RLS : catalogue publié en lecture seule et données personnelles limitées à `auth.uid()`.
+Ne jamais placer de clé `service_role` dans le navigateur. Appliquer les migrations dans leur ordre, puis les deux seeds configurés dans `supabase/config.toml`. Le schéma active RLS : catalogues publiés en lecture seule et données personnelles limitées à `auth.uid()`.
 
 Les scores, XP, cœurs, séries et déblocages sont produits par des fonctions PostgreSQL sécurisées, et non par le navigateur. Voir `docs/jangat-staging.md` pour la procédure de staging et les actions externes restantes.
 
@@ -42,5 +44,6 @@ Consulter :
 - `docs/jangat-v1-scope.md`
 - `docs/jangat-v1-architecture.md`
 - `docs/jangat-v1-content-model.md`
+- `docs/educoncret-professional-path.md`
 
 Signature : **Jàng — Jëf — Xam**

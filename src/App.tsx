@@ -11,6 +11,8 @@ import { completeLesson, finalizeDiagnostic, loadServerState, recordStep, resetP
 import { deleteDraft, readDraft, writeDraft } from "./features/offline/draftStore";
 import { AuthErrorPanel } from "./features/auth/AuthErrorPanel";
 import { classifyAuthError, debugAuthError, type AuthUiError } from "./features/auth/authErrors";
+import { isProfessionalPathUnlocked } from "./features/professional/professionalCatalog";
+import { CvEvidencePage, DomainPage, MissionPage, PortfolioPage, PositioningPage, ProfessionalHub } from "./features/professional/ProfessionalPages";
 
 type AppStore = { state: JangatState; setState: React.Dispatch<React.SetStateAction<JangatState>> };
 const StoreContext = React.createContext<AppStore | null>(null);
@@ -29,7 +31,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="stats" aria-label="Progression"><span>🔥 {state.streak}</span><span>◆ {state.xp} XP</span><span>♥ {state.hearts}</span><button title="Se déconnecter" onClick={async()=>{await signOut();setState(loadState());nav("/login")}}>↪</button></div>
     </header>
     <main>{children}</main>
-    {state.authenticated && <nav aria-label="Navigation principale"><Link to="/dashboard">Accueil</Link><Link to={`/course/${COURSES.id}`}>Parcours</Link><Link to="/profile">Profil</Link><Link to="/settings">Réglages</Link></nav>}
+    {state.authenticated && <nav aria-label="Navigation principale"><Link to="/dashboard">Accueil</Link><Link to={`/course/${COURSES.id}`}>Parcours</Link><Link to="/professional">EduConcret</Link><Link to="/profile">Profil</Link><Link to="/settings">Réglages</Link></nav>}
   </div>;
 }
 
@@ -80,11 +82,12 @@ function Onboarding() {
 }
 
 function Dashboard() {
-  const {state}=useStore(); const completed=state.completedLessons.length; const next=LESSONS.find(l=>!state.completedLessons.includes(l.id));
+  const {state}=useStore(); const completed=state.completedLessons.length; const next=LESSONS.find(l=>!state.completedLessons.includes(l.id));const professionalUnlocked=isProfessionalPathUnlocked(state.completedLessons,state.currentCourseValidated);
   return <Shell><section className="welcome"><div><p className="eyebrow">Bonjour {state.profile.firstName || "à vous"}</p><h1>Une petite avancée aujourd’hui ?</h1><p>Parcours recommandé pour réactiver et actualiser votre profil d’ingénieur pédagogique.</p></div><Mascot/></section>
     <div className="metric-grid"><article><span>Objectif</span><strong>{Math.min(completed*5,state.profile.dailyGoal)} / {state.profile.dailyGoal} min</strong></article><article><span>Série</span><strong>{state.streak} jour{state.streak>1?"s":""}</strong></article><article><span>Énergie</span><strong>{state.hearts} / 5 cœurs</strong></article></div>
     <section className="card recommended"><div><p className="eyebrow">Séance recommandée</p><h2>{state.diagnostic ? next?.title || "Réviser vos acquis" : "Diagnostic de positionnement"}</h2><p>{state.diagnostic ? "Une microleçon ciblée de 5 à 8 minutes." : "Identifiez vos points forts et votre premier axe de progression."}</p></div><Link className="primary" to={state.diagnostic ? next ? `/lesson/${next.id}` : `/course/${COURSES.id}` : "/diagnostic"}>Continuer</Link></section>
-    <h2>Votre progression</h2><div className="progress"><i style={{width:`${calculateProgress(completed,LESSONS.length)}%`}}/></div><Link className="text-link" to={`/course/${COURSES.id}`}>Voir le parcours complet →</Link></Shell>;
+    <h2>Votre progression</h2><div className="progress"><i style={{width:`${calculateProgress(completed,LESSONS.length)}%`}}/></div><Link className="text-link" to={`/course/${COURSES.id}`}>Voir le parcours complet →</Link>
+    <section className="card recommended"><div><p className="eyebrow">Après ce parcours</p><h2>Directeur de formation et ingénieur pédagogique augmenté par l’IA</h2><p>{professionalUnlocked?"Votre parcours professionnel EduConcret est ouvert.":"Il s’ouvrira après la complétion ou la validation explicite du parcours actuel."}</p></div><Link className="primary" to="/professional">{professionalUnlocked?"Ouvrir":"Voir le prérequis"}</Link></section></Shell>;
 }
 
 function Diagnostic() {
@@ -133,8 +136,9 @@ function Profile({settings=false}:{settings?:boolean}) { const {state,setState}=
   <p className="saved">Les modifications sont sauvegardées automatiquement.</p></section></Shell>}
 
 function Protected({children}:{children:React.ReactNode}) { const {state}=useStore(); return state.authenticated?<>{children}</>:<Navigate to="/login" replace/>; }
+function ProfessionalRoute({page}:{page:"hub"|"positioning"|"domain"|"mission"|"portfolio"|"cv"}){const {state}=useStore();const unlocked=isProfessionalPathUnlocked(state.completedLessons,state.currentCourseValidated);if(page==="positioning")return <Shell><PositioningPage unlocked={unlocked}/></Shell>;if(page==="domain")return <Shell><DomainPage unlocked={unlocked}/></Shell>;if(page==="mission")return <Shell><MissionPage unlocked={unlocked}/></Shell>;if(page==="portfolio")return <Shell><PortfolioPage unlocked={unlocked}/></Shell>;if(page==="cv")return <Shell><CvEvidencePage unlocked={unlocked}/></Shell>;return <Shell><ProfessionalHub unlocked={unlocked}/></Shell>}
 function AppRoutes(){return <Routes><Route path="/" element={<Navigate to="/login"/>}/><Route path="/login" element={<Auth mode="login"/>}/><Route path="/signup" element={<Auth mode="signup"/>}/><Route path="/forgot-password" element={<Auth mode="forgot"/>}/><Route path="/auth/callback" element={<AuthCallback/>}/><Route path="/auth/confirm" element={<AuthCallback/>}/><Route path="/reset-password" element={<ResetPassword/>}/>{[
   ["/onboarding",<Onboarding/>],["/dashboard",<Dashboard/>],["/diagnostic",<Diagnostic/>],["/diagnostic/result",<DiagnosticResult/>],["/course/:courseId",<Course/>],["/unit/:unitId",<Unit/>],["/lesson/:lessonId",<Lesson/>],["/profile",<Profile/>],["/settings",<Profile settings/>]
-].map(([path,el])=><Route key={path as string} path={path as string} element={<Protected>{el}</Protected>}/>)}<Route path="*" element={<Navigate to="/dashboard"/>}/></Routes>}
+].map(([path,el])=><Route key={path as string} path={path as string} element={<Protected>{el}</Protected>}/>)}<Route path="/professional" element={<Protected><ProfessionalRoute page="hub"/></Protected>}/><Route path="/professional/positioning" element={<Protected><ProfessionalRoute page="positioning"/></Protected>}/><Route path="/professional/domain/:domainId" element={<Protected><ProfessionalRoute page="domain"/></Protected>}/><Route path="/professional/mission/:missionId" element={<Protected><ProfessionalRoute page="mission"/></Protected>}/><Route path="/portfolio" element={<Protected><ProfessionalRoute page="portfolio"/></Protected>}/><Route path="/cv" element={<Protected><ProfessionalRoute page="cv"/></Protected>}/><Route path="*" element={<Navigate to="/dashboard"/>}/></Routes>}
 
 export default function App(){const [state,setState]=useState(loadState);const [ready,setReady]=useState(!supabase);useEffect(()=>{document.title=BRAND.name;const client=supabase;if(!client)return;client.auth.getSession().then(async({data})=>{if(data.session){try{const remote=await loadServerState();setState(s=>({...s,...remote}))}catch{await client.auth.signOut()}}setReady(true)});const {data:{subscription}}=client.auth.onAuthStateChange(event=>{if(event==="SIGNED_OUT")setState(loadState())});return()=>subscription.unsubscribe()},[]);const store=useMemo(()=>({state,setState}),[state]);if(envError)return <div className="configuration-error"><h1>Configuration Supabase requise</h1><p>{envError}</p><code>VITE_SUPABASE_URL<br/>VITE_SUPABASE_PUBLISHABLE_KEY</code></div>;if(!ready)return <div className="configuration-error"><p>Connexion sécurisée à JÀNGAT…</p></div>;return <StoreContext.Provider value={store}><BrowserRouter basename={import.meta.env.BASE_URL}><AppRoutes/></BrowserRouter></StoreContext.Provider>}
