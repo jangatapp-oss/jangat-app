@@ -79,7 +79,7 @@ export async function loadCourseProgress():Promise<CourseProgress[]> {
 
 export async function saveAssessmentAttempt(courseKey:string,answers:Record<string,string>,score:number,corrections:string[]) {
   const client=requireSupabase();const userId=await currentUserId();
-  const countResult=await client.from("professional_assessment_attempts").select("id",{count:"exact",head:true}).eq("course_key",courseKey);
+  const countResult=await client.from("professional_assessment_attempts").select("id",{count:"exact",head:true}).eq("user_id",userId).eq("course_key",courseKey);
   if(countResult.error)throw countResult.error;
   const attemptNumber=(countResult.count??0)+1;const passed=score>=80;
   const {error}=await client.from("professional_assessment_attempts").insert({
@@ -96,8 +96,14 @@ export async function saveAssessmentAttempt(courseKey:string,answers:Record<stri
 export async function saveMission(payload: MissionPayload) {
   const client = requireSupabase();
   const userId = await currentUserId();
-  const demonstrated=Object.values(payload.criteria).every(result=>result==="Respecté");
-  const countResult=await client.from("mission_submissions").select("id",{count:"exact",head:true}).eq("mission_key",payload.missionId);
+  const progressCheck=await client.from("professional_course_progress").select("status").eq("user_id",userId).eq("course_key",payload.courseKey).maybeSingle();
+  if(progressCheck.error)throw progressCheck.error;
+  const assessmentPassed=["assessment_passed","completed"].includes(progressCheck.data?.status??"");
+  const criteriaMet=Object.values(payload.criteria).length>0&&Object.values(payload.criteria).every(result=>result==="Respecté");
+  const substantiveDelivery=payload.operationalDelivery.trim().length>=500;
+  const substantiveExplanation=payload.personalExplanation.trim().length>=300;
+  const demonstrated=assessmentPassed&&criteriaMet&&substantiveDelivery&&substantiveExplanation;
+  const countResult=await client.from("mission_submissions").select("id",{count:"exact",head:true}).eq("user_id",userId).eq("mission_key",payload.missionId);
   if(countResult.error)throw countResult.error;
   const version=(countResult.count??0)+1;
   const { data, error } = await client.from("mission_submissions").insert({
@@ -162,7 +168,7 @@ export async function saveDefense(payload:{
   criterionResults:Record<string,string>;
 }) {
   const client=requireSupabase();const userId=await currentUserId();
-  const countResult=await client.from("professional_defense_submissions").select("id",{count:"exact",head:true});
+  const countResult=await client.from("professional_defense_submissions").select("id",{count:"exact",head:true}).eq("user_id",userId);
   if(countResult.error)throw countResult.error;
   const version=(countResult.count??0)+1;
   const demonstrated=Object.values(payload.criterionResults).length>=5&&Object.values(payload.criterionResults).every(value=>value==="Respecté");
