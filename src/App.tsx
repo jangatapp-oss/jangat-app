@@ -9,6 +9,8 @@ import { envError } from "./config/env";
 import { supabase } from "./config/supabase";
 import { completeLesson, finalizeDiagnostic, loadServerState, recordStep, resetPassword, saveProfile, signIn, signOut, signUp, syncDraft } from "./features/progress/jangatService";
 import { deleteDraft, readDraft, writeDraft } from "./features/offline/draftStore";
+import { AuthErrorPanel } from "./features/auth/AuthErrorPanel";
+import { classifyAuthError, debugAuthError, type AuthUiError } from "./features/auth/authErrors";
 
 type AppStore = { state: JangatState; setState: React.Dispatch<React.SetStateAction<JangatState>> };
 const StoreContext = React.createContext<AppStore | null>(null);
@@ -32,31 +34,31 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function AuthCallback() {
-  const nav=useNavigate();const {setState}=useStore();const [message,setMessage]=useState("Validation de votre lien sécurisé…");
-  useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(async({data,error})=>{if(error||!data.session){setMessage("Ce lien est invalide ou a expiré.");return}const remote=await loadServerState();setState(s=>({...s,...remote}));nav(remote.onboarded?"/dashboard":"/onboarding",{replace:true})})},[nav,setState]);
-  return <div className="configuration-error" role="status"><Mascot/><p>{message}</p><Link to="/login">Retour à la connexion</Link></div>;
+  const nav=useNavigate();const {setState}=useStore();const [error,setError]=useState<AuthUiError|null>(null);
+  useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(async({data,error:sessionError})=>{try{if(sessionError)throw sessionError;if(!data.session)throw {code:"session_missing",message:"Aucune session n’a été créée à partir du lien reçu."};const remote=await loadServerState();setState(s=>({...s,...remote}));nav(remote.onboarded?"/dashboard":"/onboarding",{replace:true})}catch(caught){const classified=classifyAuthError(caught,"callback");debugAuthError(classified,{action:"authCallback",redirectTo:window.location.href});setError(classified)}})},[nav,setState]);
+  return <div className="configuration-error" role="status"><Mascot/>{error?<AuthErrorPanel error={error}/>:<p>Validation de votre lien sécurisé…</p>}<Link to="/login">Retour à la connexion</Link></div>;
 }
 
 function ResetPassword() {
-  const nav=useNavigate();const [error,setError]=useState("");const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const password=String(new FormData(e.currentTarget).get("password"));const result=await supabase?.auth.updateUser({password});if(result?.error)setError(result.error.message);else nav("/dashboard")};
-  return <div className="auth-page"><section className="auth-hero"><Mascot/><h1>JÀNGAT</h1><p>Choisissez un nouveau mot de passe.</p></section><form className="card auth-card" onSubmit={submit}><h2>Nouveau mot de passe</h2><label>Mot de passe<input name="password" type="password" minLength={8} autoComplete="new-password" required/></label><button className="primary">Enregistrer</button>{error&&<p className="form-error" role="alert">{error}</p>}</form></div>;
+  const nav=useNavigate();const [error,setError]=useState<AuthUiError|null>(null);const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setError(null);const password=String(new FormData(e.currentTarget).get("password"));const result=await supabase?.auth.updateUser({password});if(result?.error){const classified=classifyAuthError(result.error,"callback");debugAuthError(classified,{action:"updatePassword"});setError(classified)}else nav("/dashboard")};
+  return <div className="auth-page"><section className="auth-hero"><Mascot/><h1>JÀNGAT</h1><p>Choisissez un nouveau mot de passe.</p></section><form className="card auth-card" onSubmit={submit}><h2>Nouveau mot de passe</h2><label>Mot de passe<input name="password" type="password" minLength={8} autoComplete="new-password" required/></label><button className="primary">Enregistrer</button>{error&&<AuthErrorPanel error={error}/>}</form></div>;
 }
 
 function Auth({ mode }: { mode: "login" | "signup" | "forgot" }) {
-  const { setState } = useStore(); const nav = useNavigate(); const [error,setError]=useState("");const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");
-  const submit = async(e: FormEvent<HTMLFormElement>) => { e.preventDefault();setBusy(true);setError("");const data=new FormData(e.currentTarget);const email=String(data.get("email"));const password=String(data.get("password")||"");try{
+  const { setState } = useStore(); const nav = useNavigate(); const [error,setError]=useState<AuthUiError|null>(null);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");
+  const submit = async(e: FormEvent<HTMLFormElement>) => { e.preventDefault();setBusy(true);setError(null);const data=new FormData(e.currentTarget);const email=String(data.get("email"));const password=String(data.get("password")||"");let phase:"auth"|"profile"="auth";try{
     if(mode==="forgot"){await resetPassword(email);setNotice("Un lien de récupération vient d’être envoyé.");return}
     if(mode==="signup"){const result=await signUp(email,password,String(data.get("firstName")));if(!result.session){setNotice("Compte créé. Confirmez votre adresse e-mail avant de vous connecter.");return}}
     else await signIn(email,password);
-    const remote=await loadServerState();setState(s=>({...s,...remote}));nav(mode==="signup"?"/onboarding":remote.onboarded?"/dashboard":"/onboarding");
-  }catch(err){setError(err instanceof Error?err.message:"Une erreur est survenue.")}finally{setBusy(false)}};
+    phase="profile";const remote=await loadServerState();setState(s=>({...s,...remote}));nav(mode==="signup"?"/onboarding":remote.onboarded?"/dashboard":"/onboarding");
+  }catch(err){const classified=classifyAuthError(err,phase);debugAuthError(classified,{action:mode,email});setError(classified)}finally{setBusy(false)}};
   return <div className="auth-page"><section className="auth-hero"><Mascot/><p className="eyebrow">{BRAND.signature}</p><h1>{BRAND.name}</h1><p>{BRAND.subtitle}</p></section>
     <form onSubmit={submit} className="card auth-card"><h2>{mode === "login" ? "Heureux de vous revoir" : mode === "signup" ? "Créer mon espace" : "Réinitialiser mon mot de passe"}</h2>
       {mode === "signup" && <label>Prénom<input name="firstName" required autoComplete="given-name"/></label>}
       <label>Adresse e-mail<input name="email" type="email" required autoComplete="email"/></label>
       {mode !== "forgot" && <label>Mot de passe<input name="password" type="password" minLength={8} required autoComplete={mode === "login" ? "current-password" : "new-password"}/></label>}
       <button className="primary" disabled={busy}>{busy?"Connexion…":mode === "login" ? "Se connecter" : mode === "signup" ? "Commencer" : "Envoyer le lien"}</button>
-      {error&&<p className="form-error" role="alert">{error}</p>}{notice&&<p className="form-notice" role="status">{notice}</p>}
+      {error&&<AuthErrorPanel error={error}/>} {notice&&<p className="form-notice" role="status">{notice}</p>}
       {mode === "login" && <><Link to="/forgot-password">Mot de passe oublié ?</Link><p>Pas encore de compte ? <Link to="/signup">S’inscrire</Link></p></>}
       {mode === "signup" && <p>Déjà inscrit ? <Link to="/login">Se connecter</Link></p>}
       {mode === "forgot" && <p>Si ce compte existe, un lien sera envoyé. <Link to="/login">Retour</Link></p>}
@@ -135,4 +137,4 @@ function AppRoutes(){return <Routes><Route path="/" element={<Navigate to="/logi
   ["/onboarding",<Onboarding/>],["/dashboard",<Dashboard/>],["/diagnostic",<Diagnostic/>],["/diagnostic/result",<DiagnosticResult/>],["/course/:courseId",<Course/>],["/unit/:unitId",<Unit/>],["/lesson/:lessonId",<Lesson/>],["/profile",<Profile/>],["/settings",<Profile settings/>]
 ].map(([path,el])=><Route key={path as string} path={path as string} element={<Protected>{el}</Protected>}/>)}<Route path="*" element={<Navigate to="/dashboard"/>}/></Routes>}
 
-export default function App(){const [state,setState]=useState(loadState);const [ready,setReady]=useState(!supabase);useEffect(()=>{document.title=BRAND.name;const client=supabase;if(!client)return;client.auth.getSession().then(async({data})=>{if(data.session){try{const remote=await loadServerState();setState(s=>({...s,...remote}))}catch{await client.auth.signOut()}}setReady(true)});const {data:{subscription}}=client.auth.onAuthStateChange(event=>{if(event==="SIGNED_OUT")setState(loadState())});return()=>subscription.unsubscribe()},[]);const store=useMemo(()=>({state,setState}),[state]);if(envError)return <div className="configuration-error"><h1>Configuration Supabase requise</h1><p>{envError}</p><code>VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY</code></div>;if(!ready)return <div className="configuration-error"><p>Connexion sécurisée à JÀNGAT…</p></div>;return <StoreContext.Provider value={store}><BrowserRouter basename={import.meta.env.BASE_URL}><AppRoutes/></BrowserRouter></StoreContext.Provider>}
+export default function App(){const [state,setState]=useState(loadState);const [ready,setReady]=useState(!supabase);useEffect(()=>{document.title=BRAND.name;const client=supabase;if(!client)return;client.auth.getSession().then(async({data})=>{if(data.session){try{const remote=await loadServerState();setState(s=>({...s,...remote}))}catch{await client.auth.signOut()}}setReady(true)});const {data:{subscription}}=client.auth.onAuthStateChange(event=>{if(event==="SIGNED_OUT")setState(loadState())});return()=>subscription.unsubscribe()},[]);const store=useMemo(()=>({state,setState}),[state]);if(envError)return <div className="configuration-error"><h1>Configuration Supabase requise</h1><p>{envError}</p><code>VITE_SUPABASE_URL<br/>VITE_SUPABASE_PUBLISHABLE_KEY</code></div>;if(!ready)return <div className="configuration-error"><p>Connexion sécurisée à JÀNGAT…</p></div>;return <StoreContext.Provider value={store}><BrowserRouter basename={import.meta.env.BASE_URL}><AppRoutes/></BrowserRouter></StoreContext.Provider>}

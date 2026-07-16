@@ -21,7 +21,7 @@ accueil-educoncret.html
 certif-pro.html
 icons/
 manifest.webmanifest
-service-worker.js
+/service-worker.js
 public/icon.svg
 public/apple-touch-icon.svg
 src/components/

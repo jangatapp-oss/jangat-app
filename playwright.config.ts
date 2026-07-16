@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir:"./e2e",fullyParallel:false,retries:0,reporter:"list",
-  use:{baseURL:"http://127.0.0.1:4173",trace:"retain-on-failure"},
-  webServer:{command:"pnpm dev --host 127.0.0.1 --port 4173",url:"http://127.0.0.1:4173",reuseExistingServer:true,env:{...process.env,VITE_SUPABASE_URL:"https://example.supabase.co",VITE_SUPABASE_ANON_KEY:"public-anon-key-for-layout-tests-only-123456789"}},
+  use:{baseURL:"http://127.0.0.1:4173/jangat-app/",trace:"retain-on-failure"},
+  webServer:{command:"pnpm dev --host 127.0.0.1 --port 4173",url:"http://127.0.0.1:4173/jangat-app/",reuseExistingServer:true,env:{...process.env,VITE_SUPABASE_URL:"https://example.supabase.co",VITE_SUPABASE_PUBLISHABLE_KEY:"public-key-for-layout-tests-only-123456789"}},
   projects:[
     {name:"Desktop Chrome",use:{...devices["Desktop Chrome"]}},
     {name:"iPhone SE 375x667",use:{...devices["Desktop Chrome"],viewport:{width:375,height:667},deviceScaleFactor:2,isMobile:true,hasTouch:true}},
