@@ -43,4 +43,62 @@ export async function saveProfile(state:JangatState["profile"],onboarded=true){c
 export async function finalizeDiagnostic(answers:Record<string,string>){const {data,error}=await requireSupabase().rpc("finalize_diagnostic",{p_answers:answers});if(error)throw error;return data as {global_score:number;domain_scores:Record<string,number>;xp:number;hearts:number;streak:number}}
 export async function recordStep(lessonId:string,stepKey:string,answer:unknown){const key=crypto.randomUUID();const {data,error}=await requireSupabase().rpc("record_step_attempt",{p_lesson_id:lessonId,p_step_key:stepKey,p_answer:answer as never,p_idempotency_key:key});if(error)throw error;return data}
 export async function completeLesson(lessonId:string){const key=`complete:${lessonId}`;const {data,error}=await requireSupabase().rpc("complete_lesson",{p_lesson_id:lessonId,p_idempotency_key:key});if(error)throw error;return data as {xp:number;hearts:number;streak:number}}
-export async function syncDraft(stepId:string,text:string,idempotencyKey:string){const client=requireSupabase();const user=(await client.auth.getUser()).data.user;if(!user)throw new Error("Session expirée");const existing=await client.from("open_responses").select("*").eq("step_id",stepId).maybeSingle();if(existing.data&&existing.data.status!=="draft"&&existing.data.first_version!==text)throw new Error("CONFLICT");const {error}=await client.from("open_responses").upsert({user_id:user.id,step_id:stepId,first_version:text,status:"draft",idempotency_key:idempotencyKey} as never,{onConflict:"user_id,step_id"});if(error)throw error}
+export async function syncDraft(stepKey:string,text:string,idempotencyKey:string){
+  const client=requireSupabase();
+  const {data:{user},error:userError}=await client.auth.getUser();
+  if(userError)throw userError;
+  if(!user)throw new Error("Session expirée");
+
+  // open_responses.step_id est une clé UUID. L’interface manipule des clés lisibles
+  // comme « m1-l4:1 » : il faut donc d’abord résoudre la vraie ligne lesson_steps.
+  let {data:step,error:stepError}=await client
+    .from("lesson_steps")
+    .select("id")
+    .eq("step_key",stepKey)
+    .maybeSingle();
+  if(stepError)throw stepError;
+
+  // Les premières données Supabase ne contiennent qu’une étape serveur par leçon
+  // (par exemple m2-l4:0), alors que l’interface peut enregistrer m2-l4:1 ou :2.
+  // Dans ce cas, on rattache le brouillon à l’étape serveur de la même leçon.
+  if(!step){
+    const lessonAppId=stepKey.split(":")[0];
+    const {data:lesson,error:lessonError}=await client
+      .from("lessons")
+      .select("id")
+      .eq("app_id",lessonAppId)
+      .maybeSingle();
+    if(lessonError)throw lessonError;
+    if(lesson){
+      const fallback=await client
+        .from("lesson_steps")
+        .select("id")
+        .eq("lesson_id",lesson.id)
+        .order("display_order",{ascending:true})
+        .limit(1)
+        .maybeSingle();
+      if(fallback.error)throw fallback.error;
+      step=fallback.data;
+    }
+  }
+  if(!step)throw new Error(`Étape introuvable sur le serveur : ${stepKey}`);
+
+  const {data:existing,error:existingError}=await client
+    .from("open_responses")
+    .select("status,first_version")
+    .eq("user_id",user.id)
+    .eq("step_id",step.id)
+    .maybeSingle();
+  if(existingError)throw existingError;
+  if(existing&&existing.status!=="draft"&&existing.first_version!==text)throw new Error("CONFLICT");
+
+  const {error}=await client.from("open_responses").upsert({
+    user_id:user.id,
+    step_id:step.id,
+    first_version:text,
+    status:"draft",
+    idempotency_key:idempotencyKey,
+    updated_at:new Date().toISOString(),
+  } as never,{onConflict:"user_id,step_id"});
+  if(error)throw error;
+}
