@@ -51,11 +51,14 @@ export async function syncDraft(stepKey:string,text:string,idempotencyKey:string
 
   // open_responses.step_id est une clé UUID. L’interface manipule des clés lisibles
   // comme « m1-l4:1 » : il faut donc d’abord résoudre la vraie ligne lesson_steps.
-  let {data:step,error:stepError}=await client
+  const stepResult=await client
     .from("lesson_steps")
     .select("id")
     .eq("step_key",stepKey)
     .maybeSingle();
+
+  let step=stepResult.data;
+  const stepError=stepResult.error;
   if(stepError)throw stepError;
 
   // Les premières données Supabase ne contiennent qu’une étape serveur par leçon
