@@ -120,7 +120,84 @@ function Lesson() {
   const step=lesson.steps[index];
   const draftKey=`jangat-draft-${lessonId}-${index}`;const syncCurrent=async()=>{if(step.type!=="open"||!draft.trim()||!navigator.onLine)return;setSyncState("Synchronisation en cours");try{await syncDraft(`${lesson.id}:${index}`,draft,`${lesson.id}:${index}:draft`);setSyncState("Synchronisé");}catch(e){setSyncState(e instanceof Error&&e.message==="CONFLICT"?"Conflit à résoudre":"Échec de synchronisation")}};
   useEffect(()=>{if(step.type!=="open")return;readDraft(draftKey).then(value=>{if(value)setDraft(value)});const online=async()=>{if(!navigator.onLine)return;const saved=await readDraft(draftKey);if(!saved.trim())return;setSyncState("Synchronisation en cours");try{await syncDraft(`${lesson.id}:${index}`,saved,`${lesson.id}:${index}:draft`);setSyncState("Synchronisé")}catch{setSyncState("Échec de synchronisation")}};window.addEventListener("online",online);return()=>window.removeEventListener("online",online)},[draftKey,index,lesson.id,step.type]);
-  const validate=async()=>{if(step.type==="content"||step.type==="vocabulary"){await recordStep(lesson.id,`${lesson.id}:${index}`,{viewed:true});setFeedback({ok:true,text:"Bien joué. Vous venez de consolider une notion importante."});return} if(step.type==="open"){if(!draft.trim())return;await writeDraft(draftKey,draft);await syncCurrent();setFeedback({ok:true,text:"Votre première version est conservée. Comparez-la maintenant aux critères proposés."});return}const result=await recordStep(lesson.id,`${lesson.id}:${index}`,answer);const ok=answer===step.correct;setFeedback({ok,text:ok?step.feedbackCorrect||"Exact.":step.feedbackIncorrect||"Ce n’est pas encore acquis. Relisez l’explication et réessayez."});if(!ok&&typeof result==="object")setState(s=>({...s,hearts:Math.max(0,s.hearts-1)}));};
+  const validate=async()=>{
+    try{
+      setFeedback(null);
+
+      if(step.type==="content"||step.type==="vocabulary"){
+        await recordStep(
+          lesson.id,
+          `${lesson.id}:${index}`,
+          {viewed:true},
+        );
+
+        setFeedback({
+          ok:true,
+          text:"Bien joué. Vous venez de consolider une notion importante.",
+        });
+        return;
+      }
+
+      if(step.type==="open"){
+        if(!draft.trim())return;
+
+        await writeDraft(draftKey,draft);
+        await syncCurrent();
+
+        setFeedback({
+          ok:true,
+          text:"Votre première version est conservée. Comparez-la maintenant aux critères proposés.",
+        });
+        return;
+      }
+
+      const result=await recordStep(
+        lesson.id,
+        `${lesson.id}:${index}`,
+        answer,
+      );
+
+      const ok=answer===step.correct;
+
+      setFeedback({
+        ok,
+        text:ok
+          ? step.feedbackCorrect||"Exact."
+          : step.feedbackIncorrect||
+            "Ce n’est pas encore acquis. Relisez l’explication et réessayez.",
+      });
+
+      if(!ok&&typeof result==="object"){
+        setState(s=>({
+          ...s,
+          hearts:Math.max(0,s.hearts-1),
+        }));
+      }
+    }catch(error){
+      console.error("JÀNGAT — validation impossible",error);
+
+      const message=
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      const userMessage=
+        message.includes("lesson_not_found")
+          ? "Cette leçon est absente de la base Supabase."
+          : message.includes("lesson_step_not_found")
+            ? "L’étape de cette leçon est absente de Supabase."
+            : message.includes("not_enrolled")
+              ? "Votre inscription au parcours doit être réactivée."
+              : message.includes("authentication_required")||message.includes("JWT")
+                ? "Votre session a expiré. Déconnectez-vous puis reconnectez-vous."
+                : `Échec de validation : ${message}`;
+
+      setFeedback({
+        ok:false,
+        text:userMessage,
+      });
+    }
+  };
   const next=async()=>{if(index<lesson.steps.length-1){setIndex(index+1);setAnswer("");setFeedback(null)}else{const result=await completeLesson(lesson.id);setState(s=>({...s,completedLessons:Array.from(new Set([...s.completedLessons,lesson.id])),xp:result.xp,hearts:result.hearts,streak:result.streak,lastActivity:new Date().toISOString().slice(0,10),unlockedModules:lesson.moduleId==="module-1"&&lesson.id==="m1-l4"?Array.from(new Set([...s.unlockedModules,"module-2"])):s.unlockedModules}));await deleteDraft(draftKey);nav(`/unit/${lesson.moduleId}`)}};
   if(!selectedLesson)return <Navigate to="/dashboard"/>;
   return <Shell><section className="lesson-head"><button aria-label="Fermer la leçon" onClick={()=>nav(-1)}>×</button><div className="progress"><i style={{width:`${((index+1)/lesson.steps.length)*100}%`}}/></div><span>♥ {state.hearts}</span></section><section className="card lesson-card"><p className="eyebrow">{lesson.title} · Étape {index+1}/{lesson.steps.length}</p><div className="question-title"><h1>{step.title}</h1><button className="speak" disabled={!state.profile.voice||!speechService.isSupported()} onClick={()=>speechService.speak(`${step.title}. ${step.body||step.prompt||""}`,{lang:step.lang||"fr-FR",rate:state.profile.speechRate})}>🔊 Écouter</button></div>{step.body&&<p className="lesson-body">{step.body}</p>}
