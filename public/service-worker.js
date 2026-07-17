@@ -1,15 +1,31 @@
-const CACHE_NAME = "jangat-v3-complete-curriculum-1";
+const CACHE_NAME = "jangat-v4-resilient-cache";
 const BASE_PATH = self.location.pathname.replace(/service-worker\.js$/, "");
 const INDEX_PATH = `${BASE_PATH}index.html`;
-const MANIFEST_PATH = `${BASE_PATH}manifest.json`;
-const ICON_PATH = `${BASE_PATH}jangat-icon.svg`;
-const APPLE_ICON_PATH = `${BASE_PATH}jangat-apple-touch-icon.svg`;
-const APP_SHELL = [BASE_PATH, INDEX_PATH, MANIFEST_PATH, ICON_PATH, APPLE_ICON_PATH];
+
+const APP_SHELL = [
+  INDEX_PATH,
+  `${BASE_PATH}manifest.json`,
+  `${BASE_PATH}jangat-icon.svg`,
+  `${BASE_PATH}jangat-apple-touch-icon.svg`,
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Un fichier manquant ne doit plus bloquer toute l'installation.
+      await Promise.allSettled(
+        APP_SHELL.map(async (url) => {
+          const response = await fetch(url, { cache: "no-cache" });
+          if (!response.ok) {
+            console.warn(`JÀNGAT : ressource non mise en cache (${response.status})`, url);
+            return;
+          }
+          await cache.put(url, response);
+        }),
+      );
+    }),
   );
+
   self.skipWaiting();
 });
 
@@ -23,32 +39,28 @@ self.addEventListener("activate", (event) => {
       ),
     ),
   );
+
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
-    return;
-  }
+  if (event.request.method !== "GET") return;
 
   const requestUrl = new URL(event.request.url);
 
+  // Ne jamais intercepter Supabase ni les autres domaines externes.
+  if (requestUrl.origin !== self.location.origin) return;
+
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => response)
-        .catch(async () => {
-          const cachedPage =
-            (await caches.match(event.request)) ||
-            (await caches.match(BASE_PATH)) ||
-            (await caches.match(INDEX_PATH));
-          return cachedPage || Response.error();
-        }),
+      fetch(event.request).catch(async () => {
+        return (
+          (await caches.match(event.request)) ||
+          (await caches.match(INDEX_PATH)) ||
+          Response.error()
+        );
+      }),
     );
-    return;
-  }
-
-  if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
@@ -57,20 +69,21 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+    caches.match(event.request).then(async (cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
 
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== "basic") {
-          return response;
+      try {
+        const response = await fetch(event.request);
+
+        if (response.ok && response.type === "basic") {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, response.clone());
         }
 
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
         return response;
-      });
+      } catch {
+        return cachedResponse || Response.error();
+      }
     }),
   );
 });
