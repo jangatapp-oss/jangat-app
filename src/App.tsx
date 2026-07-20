@@ -14,6 +14,7 @@ import { classifyAuthError, debugAuthError, type AuthUiError } from "./features/
 import { isProfessionalPathUnlocked } from "./features/professional/professionalCatalog";
 
 const ProfessionalFeature=React.lazy(()=>import("./features/professional/ProfessionalFeature"));
+const AdaptiveWorkspace=React.lazy(()=>import("./features/adaptive-workspace/AdaptiveWorkspace"));
 
 type AppStore = { state: JangatState; setState: React.Dispatch<React.SetStateAction<JangatState>> };
 const StoreContext = React.createContext<AppStore | null>(null);
@@ -32,7 +33,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="stats" aria-label="Progression"><span>🔥 {state.streak}</span><span>◆ {state.xp} XP</span><span>♥ {state.hearts}</span><button title="Se déconnecter" onClick={async()=>{await signOut();setState(loadState());nav("/login")}}>↪</button></div>
     </header>
     <main>{children}</main>
-    {state.authenticated && <nav aria-label="Navigation principale"><Link to="/dashboard">Accueil</Link><Link to={`/course/${COURSES.id}`}>Parcours</Link><Link to="/professional">EduConcret</Link><Link to="/profile">Profil</Link><Link to="/settings">Réglages</Link></nav>}
+    {state.authenticated && <nav aria-label="Navigation principale"><Link to="/dashboard">Accueil</Link><Link to={`/course/${COURSES.id}`}>Parcours</Link><Link to="/professional">EduConcret</Link><Link to="/workspace-adaptatif">Workspace</Link><Link to="/profile">Profil</Link><Link to="/settings">Réglages</Link></nav>}
   </div>;
 }
 
@@ -120,84 +121,7 @@ function Lesson() {
   const step=lesson.steps[index];
   const draftKey=`jangat-draft-${lessonId}-${index}`;const syncCurrent=async()=>{if(step.type!=="open"||!draft.trim()||!navigator.onLine)return;setSyncState("Synchronisation en cours");try{await syncDraft(`${lesson.id}:${index}`,draft,`${lesson.id}:${index}:draft`);setSyncState("Synchronisé");}catch(e){setSyncState(e instanceof Error&&e.message==="CONFLICT"?"Conflit à résoudre":"Échec de synchronisation")}};
   useEffect(()=>{if(step.type!=="open")return;readDraft(draftKey).then(value=>{if(value)setDraft(value)});const online=async()=>{if(!navigator.onLine)return;const saved=await readDraft(draftKey);if(!saved.trim())return;setSyncState("Synchronisation en cours");try{await syncDraft(`${lesson.id}:${index}`,saved,`${lesson.id}:${index}:draft`);setSyncState("Synchronisé")}catch{setSyncState("Échec de synchronisation")}};window.addEventListener("online",online);return()=>window.removeEventListener("online",online)},[draftKey,index,lesson.id,step.type]);
-  const validate=async()=>{
-    try{
-      setFeedback(null);
-
-      if(step.type==="content"||step.type==="vocabulary"){
-        await recordStep(
-          lesson.id,
-          `${lesson.id}:${index}`,
-          {viewed:true},
-        );
-
-        setFeedback({
-          ok:true,
-          text:"Bien joué. Vous venez de consolider une notion importante.",
-        });
-        return;
-      }
-
-      if(step.type==="open"){
-        if(!draft.trim())return;
-
-        await writeDraft(draftKey,draft);
-        await syncCurrent();
-
-        setFeedback({
-          ok:true,
-          text:"Votre première version est conservée. Comparez-la maintenant aux critères proposés.",
-        });
-        return;
-      }
-
-      const result=await recordStep(
-        lesson.id,
-        `${lesson.id}:${index}`,
-        answer,
-      );
-
-      const ok=answer===step.correct;
-
-      setFeedback({
-        ok,
-        text:ok
-          ? step.feedbackCorrect||"Exact."
-          : step.feedbackIncorrect||
-            "Ce n’est pas encore acquis. Relisez l’explication et réessayez.",
-      });
-
-      if(!ok&&typeof result==="object"){
-        setState(s=>({
-          ...s,
-          hearts:Math.max(0,s.hearts-1),
-        }));
-      }
-    }catch(error){
-      console.error("JÀNGAT — validation impossible",error);
-
-      const message=
-        error instanceof Error
-          ? error.message
-          : String(error);
-
-      const userMessage=
-        message.includes("lesson_not_found")
-          ? "Cette leçon est absente de la base Supabase."
-          : message.includes("lesson_step_not_found")
-            ? "L’étape de cette leçon est absente de Supabase."
-            : message.includes("not_enrolled")
-              ? "Votre inscription au parcours doit être réactivée."
-              : message.includes("authentication_required")||message.includes("JWT")
-                ? "Votre session a expiré. Déconnectez-vous puis reconnectez-vous."
-                : `Échec de validation : ${message}`;
-
-      setFeedback({
-        ok:false,
-        text:userMessage,
-      });
-    }
-  };
+  const validate=async()=>{if(step.type==="content"||step.type==="vocabulary"){await recordStep(lesson.id,`${lesson.id}:${index}`,{viewed:true});setFeedback({ok:true,text:"Bien joué. Vous venez de consolider une notion importante."});return} if(step.type==="open"){if(!draft.trim())return;await writeDraft(draftKey,draft);await syncCurrent();setFeedback({ok:true,text:"Votre première version est conservée. Comparez-la maintenant aux critères proposés."});return}const result=await recordStep(lesson.id,`${lesson.id}:${index}`,answer);const ok=answer===step.correct;setFeedback({ok,text:ok?step.feedbackCorrect||"Exact.":step.feedbackIncorrect||"Ce n’est pas encore acquis. Relisez l’explication et réessayez."});if(!ok&&typeof result==="object")setState(s=>({...s,hearts:Math.max(0,s.hearts-1)}));};
   const next=async()=>{if(index<lesson.steps.length-1){setIndex(index+1);setAnswer("");setFeedback(null)}else{const result=await completeLesson(lesson.id);setState(s=>({...s,completedLessons:Array.from(new Set([...s.completedLessons,lesson.id])),xp:result.xp,hearts:result.hearts,streak:result.streak,lastActivity:new Date().toISOString().slice(0,10),unlockedModules:lesson.moduleId==="module-1"&&lesson.id==="m1-l4"?Array.from(new Set([...s.unlockedModules,"module-2"])):s.unlockedModules}));await deleteDraft(draftKey);nav(`/unit/${lesson.moduleId}`)}};
   if(!selectedLesson)return <Navigate to="/dashboard"/>;
   return <Shell><section className="lesson-head"><button aria-label="Fermer la leçon" onClick={()=>nav(-1)}>×</button><div className="progress"><i style={{width:`${((index+1)/lesson.steps.length)*100}%`}}/></div><span>♥ {state.hearts}</span></section><section className="card lesson-card"><p className="eyebrow">{lesson.title} · Étape {index+1}/{lesson.steps.length}</p><div className="question-title"><h1>{step.title}</h1><button className="speak" disabled={!state.profile.voice||!speechService.isSupported()} onClick={()=>speechService.speak(`${step.title}. ${step.body||step.prompt||""}`,{lang:step.lang||"fr-FR",rate:state.profile.speechRate})}>🔊 Écouter</button></div>{step.body&&<p className="lesson-body">{step.body}</p>}
@@ -214,9 +138,10 @@ function Profile({settings=false}:{settings?:boolean}) { const {state,setState}=
   <p className="saved">Les modifications sont sauvegardées automatiquement.</p></section></Shell>}
 
 function Protected({children}:{children:React.ReactNode}) { const {state}=useStore(); return state.authenticated?<>{children}</>:<Navigate to="/login" replace/>; }
+function AdaptiveWorkspaceRoute(){return <Shell><React.Suspense fallback={<section className="card"><p>Chargement du Workspace adaptatif…</p></section>}><AdaptiveWorkspace/></React.Suspense></Shell>}
 function ProfessionalRoute(){const {state}=useStore();const unlocked=isProfessionalPathUnlocked(state.completedLessons,state.currentCourseValidated);return <Shell><React.Suspense fallback={<section className="card"><p>Chargement du parcours professionnel…</p></section>}><ProfessionalFeature unlocked={unlocked}/></React.Suspense></Shell>}
 function AppRoutes(){return <Routes><Route path="/" element={<Navigate to="/login"/>}/><Route path="/login" element={<Auth mode="login"/>}/><Route path="/signup" element={<Auth mode="signup"/>}/><Route path="/forgot-password" element={<Auth mode="forgot"/>}/><Route path="/auth/callback" element={<AuthCallback/>}/><Route path="/auth/confirm" element={<AuthCallback/>}/><Route path="/reset-password" element={<ResetPassword/>}/>{[
-  ["/onboarding",<Onboarding/>],["/dashboard",<Dashboard/>],["/diagnostic",<Diagnostic/>],["/diagnostic/result",<DiagnosticResult/>],["/course/:courseId",<Course/>],["/unit/:unitId",<Unit/>],["/lesson/:lessonId",<Lesson/>],["/profile",<Profile/>],["/settings",<Profile settings/>]
+  ["/onboarding",<Onboarding/>],["/dashboard",<Dashboard/>],["/diagnostic",<Diagnostic/>],["/diagnostic/result",<DiagnosticResult/>],["/course/:courseId",<Course/>],["/unit/:unitId",<Unit/>],["/lesson/:lessonId",<Lesson/>],["/profile",<Profile/>],["/settings",<Profile settings/>],["/workspace-adaptatif",<AdaptiveWorkspaceRoute/>]
 ].map(([path,el])=><Route key={path as string} path={path as string} element={<Protected>{el}</Protected>}/>)}<Route path="/professional/*" element={<Protected><ProfessionalRoute/></Protected>}/><Route path="/portfolio" element={<Navigate to="/professional/portfolio"/>}/><Route path="/cv" element={<Navigate to="/professional/career"/>}/><Route path="*" element={<Navigate to="/dashboard"/>}/></Routes>}
 
 export default function App(){const [state,setState]=useState(loadState);const [ready,setReady]=useState(!supabase);useEffect(()=>{document.title=BRAND.name;const client=supabase;if(!client)return;client.auth.getSession().then(async({data})=>{if(data.session){try{const remote=await loadServerState();setState(s=>({...s,...remote}))}catch{await client.auth.signOut()}}setReady(true)});const {data:{subscription}}=client.auth.onAuthStateChange(event=>{if(event==="SIGNED_OUT")setState(loadState())});return()=>subscription.unsubscribe()},[]);const store=useMemo(()=>({state,setState}),[state]);if(envError)return <div className="configuration-error"><h1>Configuration Supabase requise</h1><p>{envError}</p><code>VITE_SUPABASE_URL<br/>VITE_SUPABASE_PUBLISHABLE_KEY</code></div>;if(!ready)return <div className="configuration-error"><p>Connexion sécurisée à JÀNGAT…</p></div>;return <StoreContext.Provider value={store}><BrowserRouter basename={import.meta.env.BASE_URL}><AppRoutes/></BrowserRouter></StoreContext.Provider>}
